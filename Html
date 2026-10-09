@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Notice System — Owner App</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --bg-deep:#030d1f;
+    --bg-mid:#071b3a;
+    --panel:#0a1f42;
+    --line:rgba(96,214,255,.25);
+    --text:#eaf5ff;
+    --muted:#8fb0cc;
+    --blue:#39c9ff;
+    --amber:#ffbb4d;
+    --green:#2ee88a;
+    --red:#ff4d6a;
+  }
+  
+  /* Isolated CSS Reset to guard against Blogger parent theme overrides */
+  #ns-admin-scope, #ns-admin-scope * {
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  body {
+    margin: 0; padding: 0;
+    background-color: #030d1f;
+  }
+  
+  /* Transforms the Admin Panel into a sleek, floating "Software Terminal" inside Blogger */
+  #ns-admin-scope {
+    background:
+      radial-gradient(circle at 15% 0%, rgba(57,201,255,.14), transparent 45%),
+      radial-gradient(circle at 90% 20%, rgba(46,232,138,.08), transparent 40%),
+      var(--bg-deep) !important;
+    color: var(--text) !important;
+    margin: 24px auto !important;
+    max-width: 720px !important;
+    min-height: 85vh;
+    border-radius: 16px !important;
+    border: 1px solid var(--line) !important;
+    box-shadow: 0 15px 50px rgba(0,0,0,0.5) !important;
+    position: relative !important;
+    padding-bottom: 50px;
+  }
+
+  /* Cyber Toast Notification Container */
+  #toast-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 90%;
+    max-width: 400px;
+    pointer-events: none;
+  }
+  .toast {
+    background: #051530;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-size: 0.88rem;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 15px rgba(57,201,255,0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transform: translateY(-20px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: auto;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast-icon { font-size: 1.1rem; flex-shrink: 0; }
+  .toast.success { border-color: var(--green); box-shadow: 0 0 15px rgba(46,232,138,0.2); }
+  .toast.success .toast-icon { color: var(--green); }
+  .toast.warning { border-color: var(--amber); box-shadow: 0 0 15px rgba(255,187,77,0.2); }
+  .toast.warning .toast-icon { color: var(--amber); }
+
+  #ns-admin-scope header{
+    position:sticky; top:0; z-index:40;
+    background:linear-gradient(180deg, #051530, rgba(5,21,48,.92));
+    border-bottom:1px solid var(--line);
+    padding:14px 16px; display:flex; align-items:center; gap:12px;
+    backdrop-filter:blur(6px);
+    border-radius: 16px 16px 0 0 !important;
+  }
+  .logo{
+    width:42px; height:42px; flex:none; border-radius:50%;
+    background:radial-gradient(circle at 30% 25%, #b9f3ff, var(--blue) 55%, #0a3a63 100%);
+    box-shadow:0 0 14px rgba(57,201,255,.55);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .logo svg{width:24px;height:24px;}
+  .brand h1{
+    font-family:'Orbitron', sans-serif; font-weight:800; font-size:1.05rem;
+    margin:0; letter-spacing:0.5px; color:#fff;
+  }
+  .brand span{
+    display:block; font-family:'Space Mono', monospace; font-size:0.63rem;
+    color:var(--muted); letter-spacing:1.2px; text-transform:uppercase; margin-top:2px;
+  }
+
+  main{max-width:640px; margin:0 auto; padding:18px 14px 0;}
+
+  .card{
+    background:var(--panel) !important;
+    border:1px solid var(--line) !important;
+    border-radius:16px !important;
+    padding:18px 16px !important;
+    margin-bottom:18px !important;
+    box-shadow:0 8px 24px rgba(0,0,0,.35) !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .card h2{
+    font-family:'Orbitron', sans-serif !important; font-size:0.92rem !important; font-weight:700 !important;
+    margin:0 0 14px !important; color:var(--blue) !important; letter-spacing:0.4px !important;
+    display:flex !important; align-items:center !important; justify-content:space-between !important;
+  }
+  .card h2 .count{
+    font-family:'Space Mono', monospace !important; font-size:0.65rem !important; font-weight:400 !important;
+    background:rgba(57,201,255,.12) !important; color:var(--blue) !important; padding:3px 8px !important; border-radius:20px !important;
+  }
+
+  label.field{display:block; margin-bottom:12px;}
+  label.field .lbl{
+    display:block; font-size:0.7rem; color:var(--muted); margin-bottom:5px;
+    text-transform:uppercase; letter-spacing:0.6px; font-weight:600;
+  }
+  input[type=text], input[type=url]{
+    width:100%; background:rgba(3,13,31,.7) !important; border:1px solid var(--line) !important;
+    color:var(--text) !important; padding:10px 11px !important; border-radius:9px !important; font-size:0.93rem !important;
+  }
+  input[type=color]{
+    width:100%; min-height:42px; background:rgba(3,13,31,.7) !important; border:1px solid var(--line) !important;
+    border-radius:9px !important; padding:4px !important; cursor:pointer;
+  }
+  textarea.field-area {
+    width:100%; background:rgba(3,13,31,.7) !important; border:1px solid var(--line) !important;
+    color:var(--text) !important; padding:10px 11px !important; border-radius:9px !important; font-size:0.9rem !important;
+    font-family:'Inter',sans-serif !important; resize: vertical; min-height: 120px;
+  }
+  input::placeholder{color:#5a7692;}
+
+  select.pri{
+    width:100%; background:rgba(3,13,31,.7) !important; border:1px solid var(--line) !important;
+    color:var(--text) !important; padding:10px 11px !important; border-radius:9px !important; font-size:0.9rem !important;
+  }
+
+  .toolbar{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
+  .toolbar button{
+    border:1px solid var(--line) !important; background:rgba(57,201,255,.08) !important;
+    color:var(--text) !important; font-size:0.82rem !important; padding:7px 10px !important; border-radius:8px !important;
+    cursor:pointer; font-weight:600;
+  }
+  .toolbar button:active{transform:scale(0.94);}
+
+  #editor, .terms-rich-editor{
+    min-height:110px; background:rgba(3,13,31,.6) !important; border:1px solid var(--line) !important;
+    border-radius:10px !important; padding:11px 12px !important; font-size:0.93rem !important; line-height:1.55 !important; outline:none !important;
+    color: var(--text) !important;
+  }
+  #editor:empty:before{content:attr(data-placeholder); color:#5a7692;}
+  .terms-rich-editor:empty:before{content:attr(data-placeholder); color:#5a7692;}
+  
+  #editor img, #editor video, .terms-rich-editor img, .terms-rich-editor video{max-width:100% !important; border-radius:8px !important; margin:6px 0 !important; display:block !important;}
+  #editor mark, .terms-rich-editor mark{background:var(--amber) !important; color:#241500 !important; padding:0 2px !important; border-radius:3px !important;}
+  #editor a, .terms-rich-editor a{color:var(--blue) !important; text-decoration:underline !important;}
+  #editor hr, .terms-rich-editor hr{border:none; border-top:1px dashed var(--line); margin:12px 0;}
+  #editor h3, .terms-rich-editor h3{font-family:'Orbitron', sans-serif; color:var(--blue); margin:10px 0 6px; font-size:1rem;}
+
+  input[type=file]{display:none;}
+  .row2{display:flex; gap:10px;}
+  .row2 label.field{flex:1;}
+
+  .btn{
+    border:none !important; border-radius:10px !important; padding:11px 16px !important; font-weight:700 !important;
+    font-size:0.9rem !important; cursor:pointer !important;
+    display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:7px !important;
+    transition: opacity 0.2s ease, transform 0.1s ease !important;
+  }
+  .btn:disabled { opacity: 0.5 !important; cursor: not-allowed !important; }
+  .btn:not(:disabled):active{transform:scale(0.97) !important;}
+  .btn-primary{background:linear-gradient(180deg, #39c9ff, #1a8fc7) !important; color:#03142b !important; box-shadow:0 4px 12px rgba(57,201,255,.35) !important;}
+  .btn-amber{background:linear-gradient(180deg, #ffbb4d, #d48e22) !important; color:#241500 !important; box-shadow:0 4px 12px rgba(255,187,77,.35) !important;}
+  .btn-ghost{background:rgba(255,255,255,.06) !important; color:var(--text) !important; border:1px solid var(--line) !important;}
+  .btn-full{width:100% !important;}
+  .actions-row{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;}
+  .actions-row .btn{flex:1; min-width:120px;}
+
+  .load-overlay{display:none; align-items:center; justify-content:center; flex-direction:column; gap:10px; padding:24px 10px;}
+  .load-overlay.show{display:flex;}
+  .ring{width:48px; height:48px; border-radius:50%; border:3px solid rgba(57,201,255,.18); border-top-color:var(--blue); animation:spin .9s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .setting-group {
+    background: rgba(3,13,31,.45) !important;
+    border: 1px dashed rgba(96,214,255,.15) !important;
+    border-radius: 12px !important;
+    padding: 14px !important;
+    margin-top: 14px !important;
+  }
+  .setting-group-title {
+    font-size: 0.72rem !important;
+    font-family: 'Space Mono', monospace !important;
+    color: var(--blue) !important;
+    margin-bottom: 10px !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+  }
+
+  .code-box{display:none; margin-top:14px;}
+  .code-box.show{display:block;}
+  .code-box textarea{
+    width:100%; min-height:120px; resize:vertical; font-family:'Space Mono',monospace;
+    font-size:0.68rem; line-height:1.4; background:#020814; color:#7fe8b3;
+    border:1px solid var(--line); border-radius:10px; padding:12px;
+  }
+  .copy-confirm{font-size:0.78rem; color:var(--green); font-weight:700; margin-top:6px; display:none;}
+  .copy-confirm.show{display:block;}
+
+  .notice-item{
+    background:rgba(3,13,31,.55) !important; border:1px solid var(--line) !important; border-radius:10px !important;
+    padding:12px !important; margin-bottom:10px !important;
+  }
+  .notice-item .meta{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px;}
+  .tag{
+    font-family:'Space Mono',monospace !important; font-size:0.62rem !important; padding:2px 8px !important; border-radius:20px !important;
+    text-transform:uppercase !important; font-weight:700 !important;
+  }
+  .tag.standard{background:rgba(57,201,255,.14) !important; color:var(--blue) !important;}
+  .tag.update{background:rgba(46,232,138,.14) !important; color:var(--green) !important;}
+  .tag.alert{background:rgba(255,77,106,.16) !important; color:var(--red) !important;}
+  .notice-item .date{font-family:'Space Mono',monospace !important; font-size:0.65rem !important; color:var(--muted) !important;}
+  .notice-item .ttl{font-weight:700; margin-bottom:3px !important; color:var(--blue);}
+  .notice-item .body{font-size:0.87rem !important; line-height:1.5 !important; color:var(--text) !important;}
+  
+  .notice-actions{display:flex; gap:12px; margin-top:10px;}
+  .notice-edit{background:rgba(57,201,255,.1); border:1px solid var(--blue); color:var(--text); cursor:pointer; font-size:0.72rem; font-weight:700; padding:6px 12px; border-radius:6px; transition:all 0.2s;}
+  .notice-edit:active{transform:scale(0.95);}
+  .notice-del{background:rgba(255,77,106,.1); border:1px solid var(--red); color:var(--text); cursor:pointer; font-size:0.72rem; font-weight:700; padding:6px 12px; border-radius:6px; transition:all 0.2s;}
+  .notice-del:active{transform:scale(0.95);}
+
+  .modal-bg{display:none; position:fixed; inset:0; background:rgba(0,4,12,.78); z-index:100; align-items:flex-end; justify-content:center;}
+  .modal-bg.show{display:flex;}
+  .modal-sheet{background:#051530; width:100%; max-width:640px; max-height:88vh; overflow-y:auto; border-radius:20px 20px 0 0; padding:16px 14px 30px; border:1px solid var(--line); transition: max-width 0.2s ease-in-out;}
+  .modal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .modal-head h3{margin:0; font-family:'Orbitron',sans-serif; font-size:0.95rem; color:#fff;}
+  .modal-close{background:none;border:none;font-size:1.3rem;color:var(--muted);cursor:pointer;}
+
+  #drag-setup-bubble {
+    position: fixed; z-index: 10000; width: 56px; height: 56px; border-radius: 50%;
+    border: 2px solid var(--amber); background: radial-gradient(circle at 30% 25%, #ffeb99, var(--amber) 55%, #633c00 100%);
+    box-shadow: 0 0 20px rgba(255, 187, 77, 0.6); cursor: move; display: none; align-items: center; justify-content: center;
+    touch-action: none;
+  }
+  #drag-setup-bubble.active { display: flex !important; }
+  #drag-setup-bubble svg { width: 26px; height: 26px; pointer-events: none; }
+  #drag-setup-bubble .coord-hint {
+    position: absolute; bottom: -32px; background: rgba(0,0,0,0.85); border: 1px solid var(--amber);
+    color: var(--amber); font-family: 'Space Mono', monospace; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+  }
+
+  footer.hint{text-align:center; color:#5a7692; font-size:0.7rem; padding:20px 20px 0; line-height:1.6;}
+  footer.hint b{color:var(--blue);}
+
+  /* Global preview widget elements style definitions */
+  .ns-wrap { font-family: Inter, sans-serif; color: #eaf5ff; }
+  .ns-wrap .ns-head { font-family: Orbitron, sans-serif; font-weight: 700; font-size: 0.85rem; color: #39c9ff; margin-bottom: 10px; }
+  .ns-wrap .ns-list { max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .ns-wrap .ns-card { background: #0a1f42; border: 1px solid rgba(96,214,255,.2); border-radius: 10px; padding: 12px; }
+  .ns-wrap .ns-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .ns-wrap .ns-tag { font-family: 'Space Mono', monospace; font-size: 0.6rem; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; font-weight: 700; }
+  .ns-wrap .ns-tag.standard { background: rgba(57,201,255,.16); color: #39c9ff; }
+  .ns-wrap .ns-tag.update { background: rgba(46,232,138,.16); color: #2ee88a; }
+  .ns-wrap .ns-tag.alert { background: rgba(255,77,106,.18); color: #ff4d6a; }
+  .ns-wrap .ns-date { font-family: 'Space Mono', monospace; font-size: 0.63rem; color: #8fb0cc; }
+  .ns-wrap .ns-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 3px; }
+  .ns-wrap .ns-body { font-size: 0.86rem; line-height: 1.5; color: #eaf5ff; }
+  .ns-wrap .ns-body img, .ns-wrap .ns-body video { max-width: 100%; border-radius: 8px; margin-top: 6px; display: block; }
+  .ns-wrap .ns-body a { color: #39c9ff; }
+  .ns-wrap .ns-body mark { background: #ffbb4d; color: #241500; }
+  .ns-wrap .ns-cta {
+    display: inline-flex !important; align-items: center; justify-content: center; width: 100%; margin-top: 12px; padding: 10px 16px;
+    background: linear-gradient(180deg, #39c9ff, #1a8fc7) !important; color: #03142b !important; border: none; border-radius: 8px;
+    font-weight: 700; font-size: 0.85rem; text-transform: uppercase; box-shadow: 0 4px 12px rgba(57,201,255,.35); text-align: center;
+  }
+
+  .ns-terms-mount-class h3 {
+    font-family: 'Orbitron', sans-serif !important; color: var(--blue) !important; font-weight: 800 !important;
+    margin: 10px 0 6px !important; font-size: 1rem !important; display: block !important;
+  }
+  .ns-terms-mount-class img { max-width: 100% !important; border-radius: 8px !important; margin: 6px 0 !important; display: block !important; }
+  .ns-terms-mount-class a { color: var(--blue) !important; text-decoration: underline !important; }
+</style>
+</head>
+<body>
+
+<div id="ns-admin-scope">
+<div id="toast-container"></div>
+
+<div class="modal-bg" id="confirmModalBg" style="display:none; position:fixed; inset:0; background:rgba(0,4,12,.85); z-index:110000; align-items:center; justify-content:center;">
+  <div style="background:#051530; border:1px solid var(--line); border-radius:16px; padding:20px; width:90%; max-width:400px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+    <h3 style="margin:0 0 10px; font-family:'Orbitron',sans-serif; font-size:1rem; color:#fff;">⚠️ Confirmation</h3>
+    <p style="margin:0 0 20px; font-size:0.88rem; color:var(--text); line-height:1.5;" id="confirmModalText">Are you sure you want to delete this notice?</p>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button type="button" class="btn btn-ghost" id="btnConfirmCancel" style="padding:8px 16px !important; font-size:0.8rem !important;">No, Cancel</button>
+      <button type="button" class="btn btn-primary" id="btnConfirmOk" style="padding:8px 16px !important; font-size:0.8rem !important; background:linear-gradient(180deg, var(--red), #c71a3e) !important; color:#fff !important; box-shadow:0 4px 12px rgba(255,77,106,.35) !important;">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="drag-setup-bubble" title="Drag to adjust default widget location">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5c-1 0-1.8.8-1.8 1.8v.6C7.7 5.6 6 7.9 6 10.6v3.6L4.4 16.6c-.4.6 0 1.4.7 1.4h13.8c.7 0 1.1-.8.7-1.4L18 14.2v-3.6c0-2.7-1.7-5-4.2-5.7v-.6c0-1-.8-1.8-1.8-1.8Z" fill="#150a00"/><path d="M9.8 19a2.2 2.2 0 0 0 4.4 0Z" fill="#150a00"/></svg>
+  <div class="coord-hint" id="dragCoordHint">Drag Me!</div>
+</div>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5c-1 0-1.8.8-1.8 1.8v.6C7.7 5.6 6 7.9 6 10.6v3.6L4.4 16.6c-.4.6 0 1.4.7 1.4h13.8c.7 0 1.1-.8.7-1.4L18 14.2v-3.6c0-2.7-1.7-5-4.2-5.7v-.6c0-1-.8-1.8-1.8-1.8Z" fill="#03142b"/><path d="M9.8 19a2.2 2.2 0 0 0 4.4 0Z" fill="#03142b"/></svg>
+  </div>
+  <div class="brand">
+    <h1>NOTICE SYSTEM</h1>
+    <span>Owner App · protected mode</span>
+  </div>
+</header>
+
+<main>
+  <section class="card" id="composerCard">
+    <h2 id="composerTitle">Compose a notice</h2>
+
+    <div id="noticeFieldsBlock">
+      <label class="field">
+        <span class="lbl">Title</span>
+        <input type="text" id="fTitle" placeholder="e.g. New chapter update">
+      </label>
+
+      <div class="row2">
+        <label class="field">
+          <span class="lbl">Priority</span>
+          <select class="pri" id="fPriority">
+            <option value="standard">Standard</option>
+            <option value="update">Update</option>
+            <option value="alert">Alert</option>
+            <option value="custom">Custom panel tag</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row2" id="customPriorityBlock" style="display:none; margin-top:-4px;">
+        <label class="field">
+          <span class="lbl">Custom panel label</span>
+          <input type="text" id="fCustomLabel" value="Custom" maxlength="30" placeholder="e.g. Event, Beta, Important">
+        </label>
+        <label class="field" style="max-width:170px;">
+          <span class="lbl">Custom panel color</span>
+          <input type="color" id="fCustomColor" value="#bb86fc" aria-label="Custom panel tag color">
+        </label>
+      </div>
+
+      <div class="toolbar">
+        <button type="button" id="btnBold"><b>B</b></button>
+        <button type="button" id="btnHighlight">✏️ Highlight</button>
+        <button type="button" id="btnLink">🔗 Link text</button>
+        <button type="button" id="btnImg">🖼️ Image</button>
+        <button type="button" id="btnVid">🎬 Video</button>
+      </div>
+      <div id="editor" contenteditable="true" data-placeholder="Write the notice…"></div>
+      <input type="file" id="imgInput" accept="image/png, image/jpeg">
+
+      <div class="row2" style="margin-top:12px;">
+        <label class="field">
+          <span class="lbl">Button link (optional)</span>
+          <input type="url" id="fLink" placeholder="https://...">
+        </label>
+        <label class="field">
+          <span class="lbl">Button label</span>
+          <input type="text" id="fLinkLabel" placeholder="Learn more">
+        </label>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">🎛️ Blogger Widget Placement & Styling</div>
+      
+      <div class="row2">
+        <label class="field">
+          <span class="lbl">Widget Display Style</span>
+          <select class="pri" id="fWidgetMode">
+            <option value="theme_panel">Theme Native Integration (Slide-Out Panel)</option>
+            <option value="bubble">Floating Bubble (Draggable)</option>
+            <option value="tab">Sleek Flat Side Tab</option>
+            <option value="swipe">Invisible Swipe Edge (Mobile Gestures)</option>
+            <option value="inline">Static Inline (Embed direct in page body)</option>
+            <option value="modal">Mandatory Pop-up (Terms/Accept Checkbox)</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="cfgBubbleBlock" class="row2" style="margin-top: 5px;">
+        <label class="field">
+          <span class="lbl">Snap Corner</span>
+          <select class="pri" id="fCorner">
+            <option value="bottom-right">Bottom-Right</option>
+            <option value="bottom-left">Bottom-Left</option>
+            <option value="top-right">Top-Right</option>
+            <option value="top-left">Top-Left</option>
+          </select>
+        </label>
+        <label class="field" style="max-width: 140px;">
+          <button type="button" class="btn btn-ghost btn-full" id="btnStartDrag" style="margin-top: 15px; font-size: 0.8rem; padding: 10px;">🎯 Drag Setup</button>
+        </label>
+      </div>
+
+      <div id="cfgTabBlock" class="row2" style="margin-top: 5px; display: none;">
+        <label class="field">
+          <span class="lbl">Tab Screen Side</span>
+          <select class="pri" id="fTabSide">
+            <option value="left">Left Screen Border</option>
+            <option value="right">Right Screen Border</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="lbl">Tab Label</span>
+          <input type="text" id="fTabText" value="📡 Notices">
+        </label>
+      </div>
+
+      <div id="cfgSwipeBlock" class="row2" style="margin-top: 5px; display: none;">
+        <label class="field">
+          <span class="lbl">Swipe Detection Area</span>
+          <select class="pri" id="fSwipeSide">
+            <option value="left">Left Edge Swipe Inwards</option>
+            <option value="right">Right Edge Swipe Inwards</option>
+          </select>
+        </label>
+      </div>
+      
+      <div id="cfgModalBlock" style="margin-top: 5px; display: none; flex-direction: column;">
+        <label class="field">
+          <span class="lbl">Pop-up Header Text (Leave blank to remove)</span>
+          <input type="text" id="fModalHeaderText" value="📡 IMPORTANT NOTICES">
+        </label>
+
+        <label class="field">
+          <span class="lbl">Require Checkbox Agreement</span>
+          <select class="pri" id="fModalCheckRequired">
+            <option value="true">Yes, user must check checkbox to accept</option>
+            <option value="false">No, just click continue button directly</option>
+          </select>
+        </label>
+
+        <div>
+          <span class="lbl" style="display:block; font-size:0.7rem; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.6px; font-weight:600;">Disclaimer/Terms Body Content</span>
+          <div class="toolbar" style="margin-bottom: 6px;">
+            <button type="button" id="btnTermsH">H3 Header</button>
+            <button type="button" id="btnTermsB"><b>B</b></button>
+            <button type="button" id="btnTermsS"><del>S</del></button>
+            <button type="button" id="btnTermsHR">― Divider Line</button>
+            <button type="button" id="btnTermsLink">🔗 Link Text</button>
+            <button type="button" id="btnTermsImg">🖼️ Image</button>
+          </div>
+          <div id="termsEditor" class="terms-rich-editor" contenteditable="true" data-placeholder="Write terms or welcome disclaimer details here..."></div>
+          <input type="file" id="termsImgInput" accept="image/png, image/jpeg" style="display:none;">
+        </div>
+
+        <label class="field" style="margin-top:12px;">
+          <span class="lbl">Pop-Up Max Width: <b id="lblWidthVal" style="color:var(--blue);">480px</b></span>
+          <input type="range" id="fModalWidth" min="280" max="800" step="10" value="480" style="width:100%; accent-color:var(--blue); margin-top:4px;">
+        </label>
+
+        <label class="field" style="margin-top:8px;">
+          <span class="lbl">Required Read Delay Timer: <b id="lblDelayVal" style="color:var(--amber);">0s (Instant)</b></span>
+          <input type="range" id="fModalDelay" min="0" max="30" value="0" style="width:100%; accent-color:var(--amber); margin-top:4px;">
+        </label>
+
+        <div class="row2">
+          <label class="field">
+            <span class="lbl">Checkbox Agreement Text</span>
+            <input type="text" id="fModalCheckText" value="I understand and accept">
+          </label>
+          <label class="field" style="max-width: 180px;">
+            <span class="lbl">Accept Button Label</span>
+            <input type="text" id="fModalBtnText" value="Continue">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button type="button" class="btn btn-ghost" id="btnPreview">👁 Preview</button>
+      <button type="button" class="btn btn-primary" id="btnPublish">📡 Publish</button>
+      <button type="button" class="btn btn-ghost" id="btnCancelEdit" style="display:none; border-color:var(--red); color:var(--red);">✕ Cancel Edit</button>
+    </div>
+
+    <div class="load-overlay" id="loadOverlay">
+      <div class="ring"></div>
+      <p id="loadText">Publishing your notice…</p>
+    </div>
+
+    <div class="code-box" id="codeBox">
+      <div id="codeBadge" style="font-family:'Orbitron',sans-serif; font-size:0.85rem; color:var(--green); margin-bottom:4px;">Published ✓ — code below</div>
+      <div style="font-size:0.75rem; color:var(--amber); font-weight:bold; margin-bottom:8px;">⚠️ CRITICAL: Always switch your Blogger post editor to "HTML View" before pasting this!</div>
+      <textarea id="codeOutput" readonly></textarea>
+      <button type="button" class="btn btn-ghost btn-full" id="btnCopy" style="margin-top:8px;">📋 Copy code for Blogger</button>
+      <div class="copy-confirm" id="copyConfirm">Copied — replace old block inside Blogger widget.</div>
+    </div>
+  </section>
+
+  <!-- PUBLISHED LIST WORKSPACE CARD -->
+  <section class="card" id="publishedNoticesCard">
+    <h2>Published notices <span class="count" id="countTag">0</span></h2>
+    <div id="noticeList"></div>
+    <button type="button" class="btn btn-ghost btn-full" id="btnGetCode">📋 Get current code</button>
+  </section>
+</main>
+
+<footer class="hint">
+  Saved on <b>this device only</b>.<br>
+  Copy it whole and replace the old code on Blogger each time.
+</footer>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h3>How this looks on Blogger</h3>
+      <button type="button" class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div id="previewMount"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'noticeSystem_notifications_v2';
+  const CONFIG_KEY = 'noticeSystem_widgetConfig_v7';
+  const EXPIRE_DAYS = 100;
+  const DAY_MS = 24*60*60*1000;
+
+  let notices = [];
+  let editingId = null;
+
+  let widgetConfig = {
+    mode: 'bubble', corner: 'bottom-right', offsetX: 18, offsetY: 18,
+    tabSide: 'left', tabText: '📡 Notices', swipeSide: 'left',
+    modalHeaderText: '📡 IMPORTANT NOTICES',
+    modalBodyHtml: 'Welcome to the Los Star System. This is the official hub for planetary maps, lore, and artwork created by the community. Please review and accept to continue exploring.',
+    modalCheckText: 'I understand and accept',
+    modalBtnText: 'Continue',
+    modalDelay: 0,
+    modalWidth: 480,
+    modalCheckRequired: 'true',
+    customPriorityLabel: 'Custom',
+    customPriorityColor: '#bb86fc'
+  };
+
+  try{ notices = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ notices = []; }
+  try{ 
+    const savedConfig = JSON.parse(localStorage.getItem(CONFIG_KEY));
+    if(savedConfig) {
+      widgetConfig = {...widgetConfig, ...savedConfig};
+    }
+  }catch(e){}
+
+  const $ = s => document.querySelector(s);
+  const editor = $('#editor');
+  const termsEditor = $('#termsEditor');
+  const imgInput = $('#imgInput');
+  const termsImgInput = $('#termsImgInput');
+  const noticeList = $('#noticeList');
+  const countTag = $('#countTag');
+  const codeBox = $('#codeBox');
+  const codeOutput = $('#codeOutput');
+  const loadOverlay = $('#loadOverlay');
+  const loadText = $('#loadText');
+  const copyConfirm = $('#copyConfirm');
+  const fTitle = $('#fTitle'), fPriority = $('#fPriority'), fLink = $('#fLink'), fLinkLabel = $('#fLinkLabel');
+  const fCustomLabel = $('#fCustomLabel'), fCustomColor = $('#fCustomColor'), customPriorityBlock = $('#customPriorityBlock');
+  const composerTitle = $('#composerTitle');
+  const btnPublish = $('#btnPublish');
+  const btnCancelEdit = $('#btnCancelEdit');
+  const composerCard = $('#composerCard');
+
+  const fWidgetMode = $('#fWidgetMode'), fCorner = $('#fCorner'), fTabSide = $('#fTabSide'), fTabText = $('#fTabText'), fSwipeSide = $('#fSwipeSide');
+  const fModalHeaderText = $('#fModalHeaderText'), fModalCheckText = $('#fModalCheckText'), fModalBtnText = $('#fModalBtnText'), fModalDelay = $('#fModalDelay'), lblDelayVal = $('#lblDelayVal');
+  const fModalWidth = $('#fModalWidth'), lblWidthVal = $('#lblWidthVal');
+  const fModalCheckRequired = $('#fModalCheckRequired');
+
+  const cfgBubbleBlock = $('#cfgBubbleBlock'), cfgTabBlock = $('#cfgTabBlock'), cfgSwipeBlock = $('#cfgSwipeBlock'), cfgModalBlock = $('#cfgModalBlock');
+  const btnStartDrag = $('#btnStartDrag'), dragSetupBubble = $('#drag-setup-bubble'), dragCoordHint = $('#dragCoordHint');
+
+  fWidgetMode.value = widgetConfig.mode;
+  fCorner.value = widgetConfig.corner;
+  fTabSide.value = widgetConfig.tabSide;
+  fTabText.value = widgetConfig.tabText;
+  fSwipeSide.value = widgetConfig.swipeSide;
+  fModalHeaderText.value = widgetConfig.modalHeaderText || '';
+  fModalCheckRequired.value = widgetConfig.modalCheckRequired || 'true';
+  termsEditor.innerHTML = widgetConfig.modalBodyHtml || '';
+  fModalCheckText.value = widgetConfig.modalCheckText || '';
+  fModalBtnText.value = widgetConfig.modalBtnText || '';
+  fModalDelay.value = widgetConfig.modalDelay || 0;
+  lblDelayVal.textContent = widgetConfig.modalDelay > 0 ? `${widgetConfig.modalDelay}s Locked` : '0s (Instant)';
+  fModalWidth.value = widgetConfig.modalWidth || 480;
+  lblWidthVal.textContent = `${fModalWidth.value}px`;
+  fCustomLabel.value = widgetConfig.customPriorityLabel || 'Custom';
+  fCustomColor.value = /^#[0-9a-fA-F]{6}$/.test(widgetConfig.customPriorityColor || '') ? widgetConfig.customPriorityColor : '#bb86fc';
+
+  function updateModalCheckVisibility() {
+    const isCheckRequired = widgetConfig.modalCheckRequired !== 'false';
+    const checkTextLabel = fModalCheckText.closest('label');
+    if (checkTextLabel) {
+      checkTextLabel.style.display = isCheckRequired ? 'block' : 'none';
+    }
+  }
+
+  function updateBlocksVisibility() {
+    const isModal = widgetConfig.mode === 'modal';
+    
+    cfgBubbleBlock.style.display = widgetConfig.mode === 'bubble' ? 'flex' : 'none';
+    cfgTabBlock.style.display = widgetConfig.mode === 'tab' ? 'flex' : 'none';
+    cfgSwipeBlock.style.display = widgetConfig.mode === 'swipe' ? 'flex' : 'none';
+    cfgModalBlock.style.display = isModal ? 'flex' : 'none';
+    dragSetupBubble.classList.remove('active');
+
+    const fieldsBlock = $('#noticeFieldsBlock');
+    const pubCard = $('#publishedNoticesCard');
+
+    updateModalCheckVisibility();
+
+    if (isModal) {
+      if(fieldsBlock) fieldsBlock.style.display = 'none';
+      if(pubCard) pubCard.style.display = 'none';
+      composerTitle.textContent = "Configure EULA Pop-Up";
+      btnPublish.innerHTML = "💾 Save Terms Config";
+      btnCancelEdit.style.display = 'none';
+    } else {
+      if(fieldsBlock) fieldsBlock.style.display = 'block';
+      if(pubCard) pubCard.style.display = 'block';
+      if(editingId) {
+        composerTitle.textContent = "Edit notice";
+        btnPublish.innerHTML = "💾 Save Changes";
+        btnCancelEdit.style.display = 'inline-flex';
+      } else {
+        composerTitle.textContent = "Compose a notice";
+        btnPublish.innerHTML = "📡 Publish";
+        btnCancelEdit.style.display = 'none';
+      }
+    }
+  }
+  updateBlocksVisibility();
+
+  function saveConfig(){ localStorage.setItem(CONFIG_KEY, JSON.stringify(widgetConfig)); }
+
+  function showToast(message, type = 'info') {
+    const container = $('#toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<span class="toast-icon">${type === 'success' ? '✅' : '⚠️'}</span><span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 50);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+
+  function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(notices)); }
+  function fmtDate(ts){ return new Date(ts).toLocaleString(undefined, {month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit'}); }
+  function esc(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function isValidHexColor(value){ return /^#[0-9a-fA-F]{6}$/.test((value || '').trim()); }
+  function contrastText(hex){
+    const c = (hex || '#bb86fc').slice(1);
+    const r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
+    return ((r*299 + g*587 + b*114) / 1000) > 160 ? '#03142b' : '#ffffff';
+  }
+  function priorityTagStyle(n){
+    if(n && n.priority === 'custom'){
+      const color = isValidHexColor(n.customColor) ? n.customColor : '#bb86fc';
+      return 'background:' + color + ';color:' + contrastText(color) + ';';
+    }
+    return n && n.priority === 'alert' ? 'background:rgba(255,77,106,.18);color:#ff4d6a;' : n && n.priority === 'update' ? 'background:rgba(46,232,138,.16);color:#2ee88a;' : 'background:rgba(57,201,255,.16);color:#39c9ff;';
+  }
+  function priorityTagLabel(n){ return n && n.priority === 'custom' ? ((n.customLabel || 'Custom').trim().slice(0,30) || 'Custom') : ((n && n.priority) || 'standard'); }
+  function updateCustomPriorityControls(){
+    if(customPriorityBlock) customPriorityBlock.style.display = fPriority.value === 'custom' ? 'flex' : 'none';
+  }
+
+  fPriority.addEventListener('change', updateCustomPriorityControls);
+  fCustomLabel.addEventListener('input', (e)=>{ widgetConfig.customPriorityLabel = e.target.value.trim().slice(0,30) || 'Custom'; saveConfig(); });
+  fCustomColor.addEventListener('input', (e)=>{ if(isValidHexColor(e.target.value)){ widgetConfig.customPriorityColor = e.target.value; saveConfig(); } });
+  updateCustomPriorityControls();
+
+  fWidgetMode.addEventListener('change', (e)=>{ widgetConfig.mode = e.target.value; saveConfig(); updateBlocksVisibility(); });
+  fCorner.addEventListener('change', (e)=>{ widgetConfig.corner = e.target.value; saveConfig(); });
+  fTabSide.addEventListener('change', (e)=>{ widgetConfig.tabSide = e.target.value; saveConfig(); });
+  fTabText.addEventListener('input', (e)=>{ widgetConfig.tabText = e.target.value; saveConfig(); });
+  fSwipeSide.addEventListener('change', (e)=>{ widgetConfig.swipeSide = e.target.value; saveConfig(); });
+  fModalHeaderText.addEventListener('input', (e)=>{ widgetConfig.modalHeaderText = e.target.value; saveConfig(); });
+  fModalCheckRequired.addEventListener('change', (e)=>{ widgetConfig.modalCheckRequired = e.target.value; saveConfig(); updateModalCheckVisibility(); });
+  termsEditor.addEventListener('input', () => { widgetConfig.modalBodyHtml = termsEditor.innerHTML; saveConfig(); });
+  fModalCheckText.addEventListener('input', (e)=>{ widgetConfig.modalCheckText = e.target.value; saveConfig(); });
+  fModalBtnText.addEventListener('input', (e)=>{ widgetConfig.modalBtnText = e.target.value; saveConfig(); });
+  
+  fModalDelay.addEventListener('input', (e)=>{
+    widgetConfig.modalDelay = parseInt(e.target.value) || 0;
+    lblDelayVal.textContent = widgetConfig.modalDelay > 0 ? `${widgetConfig.modalDelay}s Locked` : '0s (Instant)';
+    saveConfig();
+  });
+
+  fModalWidth.addEventListener('input', (e)=>{
+    widgetConfig.modalWidth = parseInt(e.target.value) || 480;
+    lblWidthVal.textContent = `${fModalWidth.value}px`;
+    saveConfig();
+  });
+
+  function toggleHeadingFormat() {
+    termsEditor.focus();
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    
+    let container = selection.getRangeAt(0).commonAncestorContainer;
+    if (container.nodeType === 3) container = container.parentNode;
+
+    let isH3 = false;
+    let targetNode = container;
+    while (targetNode && targetNode !== termsEditor) {
+      if (targetNode.tagName === 'H3') { isH3 = true; break; }
+      targetNode = targetNode.parentNode;
+    }
+    if (isH3) { document.execCommand('formatBlock', false, '<p>'); } else { document.execCommand('formatBlock', false, '<h3>'); }
+    widgetConfig.modalBodyHtml = termsEditor.innerHTML;
+    saveConfig();
+  }
+
+  $('#btnTermsH').addEventListener('click', toggleHeadingFormat);
+  $('#btnTermsB').addEventListener('click', ()=>{ termsEditor.focus(); document.execCommand('bold'); widgetConfig.modalBodyHtml = termsEditor.innerHTML; saveConfig(); });
+  $('#btnTermsS').addEventListener('click', ()=>{ termsEditor.focus(); document.execCommand('strikeThrough'); widgetConfig.modalBodyHtml = termsEditor.innerHTML; saveConfig(); });
+  $('#btnTermsHR').addEventListener('click', ()=>{ termsEditor.focus(); document.execCommand('insertHorizontalRule'); widgetConfig.modalBodyHtml = termsEditor.innerHTML; saveConfig(); });
+  $('#btnTermsLink').addEventListener('click', ()=>{
+    const url = prompt('Paste URL Link:');
+    if(url){ termsEditor.focus(); document.execCommand('createLink', false, url); widgetConfig.modalBodyHtml = termsEditor.innerHTML; saveConfig(); }
+  });
+
+  $('#btnTermsImg').addEventListener('click', () => termsImgInput.click());
+  termsImgInput.addEventListener('change', e => {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width, height = img.height;
+        if (width > 600) { height *= 600 / width; width = 600; }
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const linkUrl = prompt('Enter a destination link URL for this image (optional, leave blank if none):');
+        let htmlToInsert = '';
+        const imgBase64 = canvas.toDataURL('image/jpeg', 0.72);
+        
+        if (linkUrl && linkUrl.trim() !== '') {
+          htmlToInsert = `<a href="${linkUrl.trim()}" target="_blank" rel="noopener"><img src="${imgBase64}" style="max-width:100%; border-radius:8px; display:block; margin:6px 0;" /></a>`;
+        } else {
+          htmlToInsert = `<img src="${imgBase64}" style="max-width:100%; border-radius:8px; display:block; margin:6px 0;" />`;
+        }
+        
+        termsEditor.focus();
+        document.execCommand('insertHTML', false, htmlToInsert);
+        widgetConfig.modalBodyHtml = termsEditor.innerHTML;
+        saveConfig();
+        showToast('Image inserted in terms successfully!', 'success');
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('#btnBold').addEventListener('click', ()=>{ editor.focus(); document.execCommand('bold'); });
+  $('#btnHighlight').addEventListener('click', ()=>{ editor.focus(); document.execCommand('hiliteColor', false, '#ffbb4d'); });
+  $('#btnLink').addEventListener('click', ()=>{
+    const url = prompt('Link URL:');
+    if(url){ editor.focus(); document.execCommand('createLink', false, url); }
+  });
+  $('#btnImg').addEventListener('click', ()=> imgInput.click());
+  
+  imgInput.addEventListener('change', e=>{
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width, height = img.height;
+        if (width > 750) { height *= 750 / width; width = 750; }
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        editor.focus();
+        document.execCommand('insertImage', false, canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('#btnVid').addEventListener('click', ()=>{
+    const url = prompt('Video URL:'); if(!url) return;
+    editor.focus();
+    let embed = `<a href="${url}" target="_blank">🎬 Watch video</a><br>`;
+    const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]{6,})/);
+    if(yt) embed = `<iframe width="100%" height="200" style="border-radius:8px;border:none;" src="https://www.youtube.com/embed/${yt[1]}" allowfullscreen></iframe><br>`;
+    document.execCommand('insertHTML', false, embed);
+  });
+
+  function startEdit(id) {
+    const item = notices.find(n => String(n.id) === String(id));
+    if (!item) return;
+
+    editingId = item.id;
+    if (widgetConfig.mode === 'modal') {
+      widgetConfig.mode = 'bubble';
+      fWidgetMode.value = 'bubble';
+      saveConfig();
+      updateBlocksVisibility();
+    }
+
+    composerTitle.textContent = "Edit notice";
+    btnPublish.innerHTML = "💾 Save Changes";
+    btnPublish.classList.remove('btn-primary');
+    btnPublish.classList.add('btn-amber');
+    btnCancelEdit.style.display = 'inline-flex';
+    composerCard.style.borderColor = 'var(--amber)';
+    composerCard.style.boxShadow = '0 0 16px rgba(255,187,77,0.25)';
+
+    fTitle.value = item.title || '';
+    fPriority.value = item.priority || 'standard';
+    fCustomLabel.value = item.customLabel || widgetConfig.customPriorityLabel || 'Custom';
+    fCustomColor.value = isValidHexColor(item.customColor) ? item.customColor : (isValidHexColor(widgetConfig.customPriorityColor) ? widgetConfig.customPriorityColor : '#bb86fc');
+    updateCustomPriorityControls();
+    editor.innerHTML = item.html || '';
+    fLink.value = item.link || '';
+    fLinkLabel.value = item.linkLabel || '';
+
+    composerCard.scrollIntoView({ behavior: 'smooth' });
+    editor.focus();
+    showToast('Notice loaded into composer!', 'info');
+  }
+
+  function cancelEdit() {
+    editingId = null;
+    composerTitle.textContent = "Compose a notice";
+    btnPublish.innerHTML = "📡 Publish";
+    btnPublish.classList.add('btn-primary');
+    btnPublish.classList.remove('btn-amber');
+    btnCancelEdit.style.display = 'none';
+    composerCard.style.borderColor = 'var(--line)';
+    composerCard.style.boxShadow = '0 8px 24px rgba(0,0,0,.35)';
+
+    fTitle.value = '';
+    fPriority.value = 'standard';
+    editor.innerHTML = '';
+    fLink.value = '';
+    fLinkLabel.value = '';
+    codeBox.classList.remove('show');
+  }
+
+  btnCancelEdit.addEventListener('click', cancelEdit);
+
+  let isDraggingSetup = false;
+  let dragStartXSetup = 0;
+  let dragStartYSetup = 0;
+
+  function onDragStartSetup(clientX, clientY) {
+    isDraggingSetup = true;
+    dragStartXSetup = clientX - dragSetupBubble.offsetLeft;
+    dragStartYSetup = clientY - dragSetupBubble.offsetTop;
+  }
+
+  function onDragMoveSetup(clientX, clientY) {
+    if (!isDraggingSetup) return;
+    let nx = clientX - dragStartXSetup;
+    let ny = clientY - dragStartYSetup;
+    nx = Math.max(0, Math.min(nx, window.innerWidth - 56));
+    ny = Math.max(0, Math.min(ny, window.innerHeight - 56));
+    dragSetupBubble.style.left = nx + 'px';
+    dragSetupBubble.style.top = ny + 'px';
+    updateDragCoords(nx, ny);
+  }
+
+  function onDragEndSetup() { isDraggingSetup = false; }
+
+  dragSetupBubble.addEventListener('mousedown', e => {
+    e.preventDefault();
+    onDragStartSetup(e.clientX, e.clientY);
+    const mouseMove = ev => onDragMoveSetup(ev.clientX, ev.clientY);
+    const mouseUp = () => {
+      onDragEndSetup();
+      window.removeEventListener('mousemove', mouseMove);
+      window.removeEventListener('mouseup', mouseUp);
+    };
+    window.addEventListener('mousemove', mouseMove);
+    window.addEventListener('mouseup', mouseUp);
+  });
+
+  dragSetupBubble.addEventListener('touchstart', e => {
+    if (e.touches.length > 0) { e.preventDefault(); onDragStartSetup(e.touches[0].clientX, e.touches[0].clientY); }
+  }, { passive: false });
+
+  dragSetupBubble.addEventListener('touchmove', e => {
+    if (e.touches.length > 0) { e.preventDefault(); onDragMoveSetup(e.touches[0].clientX, e.touches[0].clientY); }
+  }, { passive: false });
+
+  dragSetupBubble.addEventListener('touchend', onDragEndSetup);
+
+  function updateDragCoords(cx, cy) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const isLeft = cx < (w / 2), isTop = cy < (h / 2);
+    widgetConfig.corner = `${isTop ? 'top' : 'bottom'}-${isLeft ? 'left' : 'right'}`;
+    fCorner.value = widgetConfig.corner;
+    widgetConfig.offsetX = isLeft ? Math.round(cx) : Math.round(w - cx - 56);
+    widgetConfig.offsetY = isTop ? Math.round(cy) : Math.round(h - cy - 56);
+    dragCoordHint.textContent = `${widgetConfig.corner} (${widgetConfig.offsetX}px, ${widgetConfig.offsetY}px)`;
+    saveConfig();
+  }
+
+  btnStartDrag.addEventListener('click', (e) => {
+    e.preventDefault();
+    const isActive = dragSetupBubble.classList.toggle('active');
+    if (isActive) {
+      const w = window.innerWidth, h = window.innerHeight;
+      const isLeft = (widgetConfig.corner || 'bottom-right').includes('left');
+      const isTop = (widgetConfig.corner || 'bottom-right').includes('top');
+      let cx = isLeft ? widgetConfig.offsetX : w - widgetConfig.offsetX - 56;
+      let cy = isTop ? widgetConfig.offsetY : h - widgetConfig.offsetY - 56;
+      cx = Math.max(10, Math.min(cx, w - 65)); cy = Math.max(10, Math.min(cy, h - 65));
+      dragSetupBubble.style.left = cx + 'px'; dragSetupBubble.style.top = cy + 'px';
+      dragSetupBubble.style.bottom = 'auto'; dragSetupBubble.style.right = 'auto';
+      updateDragCoords(cx, cy);
+      showToast('Drag setup active! Move the Gold Bell indicator.', 'info');
+    } else {
+      showToast('Drag setup completed.', 'success');
+    }
+  });
+
+  const modalBg = $('#modalBg');
+  const previewMount = $('#previewMount');
+  let prevClock = null;
+
+  $('#btnPreview').addEventListener('click', ()=>{
+    if (widgetConfig.mode === 'modal') {
+      const showHeader = (widgetConfig.modalHeaderText || '').trim() !== '';
+      const headerHtml = showHeader ? `<div style="font-family:Orbitron, sans-serif; font-weight:800; font-size:0.95rem; color:#39c9ff; text-align:center; border-bottom:1px dashed rgba(96,214,255,0.2); padding-bottom:12px; margin-bottom:16px;">${esc(widgetConfig.modalHeaderText)}</div>` : '';
+      const isCheckRequired = widgetConfig.modalCheckRequired !== 'false';
+      const checkboxPreviewHtml = isCheckRequired ? `
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="checkbox" id="prevCheck" style="width:22px; height:22px; accent-color:#39c9ff; cursor:pointer; flex-shrink: 0;">
+            <span style="font-size:0.88rem; color:#eaf5ff; line-height:1.4; user-select:none; pointer-events:none;">${esc(widgetConfig.modalCheckText)}</span>
+          </div>` : '';
+
+      $('.modal-sheet').style.maxWidth = (parseInt(widgetConfig.modalWidth || 480) + 40) + 'px';
+      previewMount.innerHTML = `
+      <div style="background:#051530; border:1px solid rgba(96,214,255,0.3); border-radius:16px; padding:20px; display:flex; flex-direction:column; font-family: Inter, sans-serif; color: #eaf5ff; width:100%; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.8), 0 0 20px rgba(57,201,255,0.15);">
+        ${headerHtml}
+        <div class="ns-terms-mount-class" style="font-size:0.88rem; line-height:1.6; color:#eaf5ff; margin-bottom:20px; max-height:220px; overflow-y:auto; padding-right:4px;">
+          ${widgetConfig.modalBodyHtml}
+        </div>
+        <div style="border-top:1px solid rgba(96,214,255,0.2); padding-top:16px; display:flex; flex-direction:column; gap:14px;">
+          ${checkboxPreviewHtml}
+          <button type="button" id="prevBtn" disabled style="width:100%; padding:14px; border-radius:8px; font-weight:700; font-size:0.95rem; text-transform:uppercase; border:none; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.3); cursor:not-allowed; transition:all 0.2s ease; font-family: Inter, sans-serif;">
+            ${esc(widgetConfig.modalBtnText)}
+          </button>
+        </div>
+      </div>`;
+      
+      setTimeout(() => {
+        if(prevClock) clearInterval(prevClock);
+        const pCheck = document.getElementById('prevCheck');
+        const pBtn = document.getElementById('prevBtn');
+        let delayLeft = parseInt(widgetConfig.modalDelay) || 0;
+        const baseLabel = esc(widgetConfig.modalBtnText);
+
+        function updatePrevState() {
+          if (delayLeft > 0) {
+            pBtn.disabled = true; pBtn.innerText = `${baseLabel} (${delayLeft}s)`;
+            pBtn.style.background = 'rgba(255,255,255,0.08)'; pBtn.style.color = 'rgba(255,255,255,0.3)';
+          } else {
+            pBtn.innerText = baseLabel; 
+            if (isCheckRequired) {
+              pBtn.disabled = !pCheck.checked;
+              if (pCheck.checked) {
+                pBtn.style.background = 'linear-gradient(180deg, #39c9ff, #1a8fc7)'; pBtn.style.color = '#03142b'; pBtn.style.cursor = 'pointer';
+              } else {
+                pBtn.style.background = 'rgba(255,255,255,0.08)'; pBtn.style.color = 'rgba(255,255,255,0.3)'; pBtn.style.cursor = 'not-allowed';
+              }
+            } else {
+              pBtn.disabled = false;
+              pBtn.style.background = 'linear-gradient(180deg, #39c9ff, #1a8fc7)'; pBtn.style.color = '#03142b'; pBtn.style.cursor = 'pointer';
+            }
+          }
+        }
+        updatePrevState();
+        if (pCheck) pCheck.addEventListener('change', updatePrevState);
+        if (delayLeft > 0) {
+          prevClock = setInterval(() => {
+            delayLeft--; updatePrevState();
+            if (delayLeft <= 0) clearInterval(prevClock);
+          }, 1000);
+        }
+      }, 50);
+    } else {
+      $('.modal-sheet').style.maxWidth = '640px';
+      const draftHTML = editor.innerHTML.trim();
+      const draft = (draftHTML && draftHTML !== '<br>') ? [{
+        id: editingId || 'draft', ts: Date.now(), html: draftHTML, title: fTitle.value,
+        priority: fPriority.value, customLabel: fPriority.value === 'custom' ? (fCustomLabel.value.trim().slice(0,30) || 'Custom') : '',
+        customColor: fPriority.value === 'custom' && isValidHexColor(fCustomColor.value) ? fCustomColor.value : '#bb86fc',
+        link: fLink.value, linkLabel: fLinkLabel.value
+      }] : [];
+      const previewList = editingId ? notices.map(n => String(n.id) === String(editingId) ? draft[0] : n) : [...draft, ...notices];
+
+      let previewCards = '';
+      if(previewList.length === 0) {
+        previewCards = '<div style="color:#8fb0cc;font-size:0.85rem;text-align:center;padding:20px;">No notices right now.</div>';
+      } else {
+        previewCards = previewList.map(n => `
+        <div style="background:#0a1f42; border:1px solid rgba(96,214,255,.2); border-radius:10px; padding:12px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <span style="font-family:monospace; font-size:0.6rem; padding:2px 7px; border-radius:20px; text-transform:uppercase; font-weight:700; ${priorityTagStyle(n)}"\>${esc(priorityTagLabel(n))}</span>
+            <span style="font-family:monospace; font-size:0.63rem; color:#8fb0cc;">${fmtDate(n.ts)}</span>
+          </div>
+          ${n.title ? `<div style="font-weight:700; font-size:0.9rem; margin-bottom:3px; color:#eaf5ff;">${esc(n.title)}</div>` : ''}
+          <div style="font-size:0.86rem; line-height:1.5; color:#eaf5ff;">${n.html}</div>
+        </div>`).join('');
+      }
+
+      previewMount.innerHTML = `
+      <div class="ns-wrap" style="position:relative; font-family: Inter, sans-serif; color: #eaf5ff;">
+        <div class="ns-head" style="font-family: Orbitron, sans-serif; font-weight: 700; font-size: 0.85rem; color: #39c9ff; margin-bottom: 10px;">📡 Notification Preview</div>
+        <div class="ns-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column;">${previewCards}</div>
+      </div>`;
+    }
+    modalBg.classList.add('show');
+  });
+  
+  $('#modalClose').addEventListener('click', () => {
+    if(prevClock) clearInterval(prevClock);
+    modalBg.classList.remove('show');
+    $('.modal-sheet').style.maxWidth = '640px'; 
+  });
+
+  btnPublish.addEventListener('click', ()=>{
+    const isEulaMode = widgetConfig.mode === 'modal';
+    const html = editor.innerHTML.trim();
+    if(!isEulaMode && (!html || html === '<br>')){ 
+      showToast('Write something in the notice editor before publishing!', 'warning'); 
+      return; 
+    }
+    
+    btnPublish.disabled = true;
+    btnCancelEdit.disabled = true;
+    $('#btnPreview').disabled = true;
+    composerCard.style.pointerEvents = 'none';
+    codeBox.classList.remove('show');
+    loadText.textContent = isEulaMode ? "Saving Terms Config..." : (editingId ? "Saving changes..." : "Publishing your notice...");
+    loadOverlay.classList.add('show');
+
+    setTimeout(()=>{
+      if (isEulaMode) {
+        saveConfig();
+        showToast('Terms configuration saved successfully!', 'success');
+      } else {
+        if (editingId) {
+          const idx = notices.findIndex(n => String(n.id) === String(editingId));
+          if (idx !== -1) {
+            notices[idx].html = html;
+            notices[idx].title = fTitle.value.trim();
+            notices[idx].priority = fPriority.value;
+            notices[idx].customLabel = fPriority.value === 'custom' ? (fCustomLabel.value.trim().slice(0,30) || 'Custom') : '';
+            notices[idx].customColor = fPriority.value === 'custom' && isValidHexColor(fCustomColor.value) ? fCustomColor.value : '#bb86fc';
+            notices[idx].link = fLink.value.trim();
+            notices[idx].linkLabel = fLinkLabel.value.trim();
+          }
+          cancelEdit();
+          showToast('Changes saved successfully!', 'success');
+        } else {
+          notices.unshift({
+            id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
+            ts: Date.now(), html: html,
+            title: fTitle.value.trim(),
+            priority: fPriority.value,
+            customLabel: fPriority.value === 'custom' ? (fCustomLabel.value.trim().slice(0,30) || 'Custom') : '',
+            customColor: fPriority.value === 'custom' && isValidHexColor(fCustomColor.value) ? fCustomColor.value : '#bb86fc',
+            link: fLink.value.trim(),
+            linkLabel: fLinkLabel.value.trim()
+          });
+          editor.innerHTML = ''; fTitle.value=''; fLink.value=''; fLinkLabel.value=''; fPriority.value='standard';
+          showToast('Notice published successfully!', 'success');
+        }
+        save();
+        renderAdminList();
+      }
+      
+      btnPublish.disabled = false;
+      btnCancelEdit.disabled = false;
+      $('#btnPreview').disabled = false;
+      composerCard.style.pointerEvents = 'auto';
+      loadOverlay.classList.remove('show');
+      
+      buildCode();
+      $('#codeBox').scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 1000);
+  });
+
+  $('#btnGetCode').addEventListener('click', ()=>{
+    buildCode();
+    $('#codeBox').scrollIntoView({ behavior: 'smooth', block: 'end' });
+  });
+
+  function buildCode(){
+    const isEulaMode = widgetConfig.mode === 'modal';
+    const dataJSON = JSON.stringify(notices.map(n=>({
+      id:n.id, ts:n.ts, html:n.html, title:n.title||'', priority:n.priority||'standard',
+      customLabel:n.customLabel||'', customColor:n.customColor||'',
+      link:n.link||'', linkLabel:n.linkLabel||''
+    })));
+
+    let htmlCore = '';
+    let widgetStyles = '';
+    let widgetJS = '';
+    let resetSelectors = '';
+
+    const snapC = (widgetConfig.corner || 'bottom-right').split('-');
+    const cornerY = snapC[0];
+    const cornerX = snapC[1];
+    const offY = widgetConfig.offsetY || 18;
+    const offX = widgetConfig.offsetX || 18;
+
+    if (isEulaMode) {
+      $('#codeBadge').textContent = 'EULA Terms Pop-up Code — Ready!';
+      $('#codeBadge').style.color = 'var(--amber)';
+      resetSelectors = '.ns-modal-overlay-class, .ns-modal-overlay-class *';
+
+      const termsText = widgetConfig.modalBodyHtml || '';
+      let hash = 0;
+      for (let i = 0; i < termsText.length; i++) {
+        hash = (hash << 5) - hash + termsText.charCodeAt(i); hash |= 0;
+      }
+      const termsHash = Math.abs(hash).toString(36);
+      const instanceId = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+
+      const showHeader = (widgetConfig.modalHeaderText || '').trim() !== '';
+      const headerHtml = showHeader ? `<div class="ns-modal-header-class">${esc(widgetConfig.modalHeaderText)}</div>` : '';
+
+      const isCheckRequired = widgetConfig.modalCheckRequired !== 'false';
+      const checkboxHtml = isCheckRequired ? `
+      <div class="ns-check-row-class">
+        <input type="checkbox" class="ns-modal-check-class">
+        <span class="ns-check-text-class">${esc(widgetConfig.modalCheckText)}</span>
+      </div>` : '';
+
+      htmlCore = `
+<div class="ns-modal-overlay-class" style="display:none;">
+  <div class="ns-modal-box-class">
+    ${headerHtml}
+    <div class="ns-terms-mount-class">
+      ${widgetConfig.modalBodyHtml}
+    </div>
+    <div class="ns-modal-footer-class">
+      ${checkboxHtml}
+      <button type="button" class="ns-modal-btn-class" disabled>${esc(widgetConfig.modalBtnText)}</button>
+    </div>
+  </div>
+</div>`;
+
+      widgetStyles = `
+  .ns-modal-overlay-class { position: fixed !important; inset: 0 !important; background: rgba(0,4,12,0.85) !important; z-index: 2147483647 !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 16px !important; backdrop-filter: blur(4px) !important; -webkit-backdrop-filter: blur(4px) !important; opacity: 0; transition: opacity 0.3s ease !important; overscroll-behavior: contain !important; }
+  .ns-modal-overlay-class.ns-show { display: flex !important; opacity: 1 !important; }
+  .ns-modal-box-class { background: #051530 !important; border: 1px solid rgba(96,214,255,0.3) !important; border-radius: 16px !important; width: 100% !important; max-width: ${widgetConfig.modalWidth || 480}px !important; max-height: 85vh !important; display: flex !important; flex-direction: column !important; box-shadow: 0 10px 40px rgba(0,0,0,0.8), 0 0 20px rgba(57,201,255,0.15) !important; padding: 20px !important; overflow: hidden !important; }
+  .ns-modal-header-class { font-family: Orbitron, sans-serif !important; font-weight: 800 !important; font-size: 0.95rem !important; color: #39c9ff !important; letter-spacing: 0.5px !important; margin-bottom: 16px !important; text-align: center !important; border-bottom: 1px dashed rgba(96,214,255,0.2) !important; padding-bottom: 12px !important; }
+  .ns-terms-mount-class { flex: 1 !important; overflow-y: auto !important; margin-bottom: 16px !important; padding-right: 4px !important; font-size: 0.88rem !important; line-height: 1.6 !important; color: #eaf5ff !important; }
+  .ns-terms-mount-class h3 { font-family: Orbitron, sans-serif !important; color: #39c9ff !important; font-size: 1rem !important; margin: 10px 0 6px !important; display: block !important; font-weight: 800 !important; }
+  .ns-terms-mount-class img { max-width: 100% !important; border-radius: 8px !important; margin: 6px 0 !important; display: block !important; }
+  .ns-terms-mount-class a { color: #39c9ff !important; text-decoration: underline !important; }
+  .ns-terms-mount-class hr { border: none !important; border-top: 1px dashed rgba(96,214,255,0.2) !important; margin: 12px 0 !important; }
+  .ns-modal-footer-class { border-top: 1px solid rgba(96,214,255,0.2) !important; padding-top: 16px !important; display: flex !important; flex-direction: column !important; gap: 14px !important; }
+  .ns-check-row-class { display: flex !important; align-items: center !important; gap: 10px !important; }
+  .ns-modal-check-class { width: 22px !important; height: 22px !important; accent-color: #39c9ff !important; flex-shrink: 0 !important; cursor: pointer !important; }
+  .ns-check-text-class { font-size: 0.88rem !important; color: #eaf5ff !important; user-select: none !important; pointer-events: none !important; }
+  .ns-modal-btn-class { width: 100% !important; padding: 14px !important; border-radius: 8px !important; font-weight: 700 !important; font-size: 0.95rem !important; text-transform: uppercase !important; cursor: pointer !important; border: none !important; transition: all 0.2s ease !important; font-family: Inter, sans-serif !important; }
+  .ns-modal-btn-class:not(:disabled) { background: linear-gradient(180deg, #39c9ff, #1a8fc7) !important; color: #03142b !important; box-shadow: 0 4px 15px rgba(57,201,255,0.4) !important; }
+  .ns-modal-btn-class:not(:disabled):active { transform: scale(0.97) !important; }
+  .ns-modal-btn-class:disabled { background: rgba(255,255,255,0.08) !important; color: rgba(255,255,255,0.3) !important; cursor: not-allowed !important; }`;
+
+      widgetJS = `var pathClean=window.location.pathname.split('/').join('_');var lsKey='ns_terms_approved_${termsHash}_${instanceId}';var isVerified=false;var isPreview=window.location.pathname.indexOf('preview')>-1||window.location.search.indexOf('preview')>-1;if(!isPreview){try{if(document.cookie.indexOf(lsKey+'=true')>-1){isVerified=true;}}catch(e){}
+try{if(localStorage.getItem(lsKey)==='true'){isVerified=true;}}catch(e){}}
+function hideAllModals(){try{var overlays=document.querySelectorAll('.ns-modal-overlay-class');for(var i=0;i<overlays.length;i++){var ov=overlays[i];ov.style.opacity='0';(function(target){setTimeout(function(){target.classList.remove('ns-show');},300);})(ov);}
+document.documentElement.style.overflow='';document.body.style.overflow='';document.body.style.touchAction='';}catch(err){}}
+function initModals(){try{var overlays=document.querySelectorAll('.ns-modal-overlay-class');if(overlays.length===0)return;if(isVerified){for(var i=0;i<overlays.length;i++){overlays[i].classList.remove('ns-show');}
+return;}
+var lockTime=parseInt("${widgetConfig.modalDelay || 0}",10);var btnLabel="${esc(widgetConfig.modalBtnText)}";var showCheck=${isCheckRequired};for(var j=0;j<overlays.length;j++){var overlay=overlays[j];var pTarget=document.getElementById('studio-root')||document.body;if(overlay.parentNode!==pTarget){pTarget.appendChild(overlay);}
+overlay.classList.add('ns-show');document.documentElement.style.overflow='hidden';document.body.style.overflow='hidden';document.body.style.touchAction='none';var check=overlay.querySelector('.ns-modal-check-class');var btn=overlay.querySelector('.ns-modal-btn-class');(function(c,b,o){function updateBtn(){if(lockTime>0){b.disabled=true;b.innerText=btnLabel+" ("+lockTime+"s)";}else{b.innerText=btnLabel;if(showCheck&&c){b.disabled=!c.checked;}else{b.disabled=false;}}}
+updateBtn();if(showCheck&&c)c.addEventListener('change',updateBtn);b.addEventListener('click',function(e){e.preventDefault();if(b.disabled)return;try{localStorage.setItem(lsKey,'true');}catch(err){}
+try{var expDate=new Date();expDate.setTime(expDate.getTime()+(3650*24*60*60*1000));document.cookie=lsKey+"=true; expires="+expDate.toUTCString()+"; path=/; SameSite=Lax";}catch(err){}
+try{var req=window.indexedDB?window.indexedDB.open("ns_terms_db_final",1):null;if(req){req.onupgradeneeded=function(ev){if(!ev.target.result.objectStoreNames.contains("auth"))ev.target.result.createObjectStore("auth");};req.onsuccess=function(ev){try{ev.target.result.transaction("auth","readwrite").objectStore("auth").put("true",lsKey);}catch(err){}};}}catch(err){}
+hideAllModals();});})(check,btn,overlay);}
+if(lockTime>0){var clock=setInterval(function(){lockTime--;for(var k=0;k<overlays.length;k++){var c=overlays[k].querySelector('.ns-modal-check-class');var b=overlays[k].querySelector('.ns-modal-btn-class');if(lockTime>0){b.disabled=true;b.innerText=btnLabel+" ("+lockTime+"s)";}else{b.innerText=btnLabel;if(showCheck&&c){b.disabled=!c.checked;}else{b.disabled=false;}}}
+if(lockTime<=0)clearInterval(clock);},1000);}
+var dynamicTopGuard=setInterval(function(){var overlaysActive=document.querySelectorAll('.ns-modal-overlay-class.ns-show');if(overlaysActive.length===0){clearInterval(dynamicTopGuard);return;}
+var currentParent=document.getElementById('studio-root')||document.body;for(var m=0;m<overlaysActive.length;m++){var activeOverlay=overlaysActive[m];if(activeOverlay.parentNode&&activeOverlay.parentNode!==currentParent){currentParent.appendChild(activeOverlay);}else if(activeOverlay.parentNode&&activeOverlay.nextSibling!==null){currentParent.appendChild(activeOverlay);}}},300);}catch(err){}}
+var bootAttempts=0;function bootTermsWidget(){var overlays=document.querySelectorAll('.ns-modal-overlay-class');if(overlays.length>0){if(isVerified){hideAllModals();}else{try{var checkDB=window.indexedDB?window.indexedDB.open("ns_terms_db_final",1):null;if(checkDB){checkDB.onsuccess=function(e){try{var getReq=e.target.result.transaction("auth","readonly").objectStore("auth").get(lsKey);getReq.onsuccess=function(){if(getReq.result==="true"){isVerified=true;hideAllModals();}else{initModals();}};getReq.onerror=function(){initModals();};}catch(err){initModals();}};checkDB.onerror=function(){initModals();};}else{initModals();}}catch(err){initModals();}}}else if(bootAttempts<100){bootAttempts++;setTimeout(bootTermsWidget,100);}}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bootTermsWidget);}else{bootTermsWidget();}`;
+
+    } else {
+      $('#codeBadge').textContent = 'Published ✓ — Notification System Code Below';
+      $('#codeBadge').style.color = 'var(--green)';
+      resetSelectors = '.notice-system-bubble-class, .notice-system-bubble-class *, .ns-inline-embed-class, .ns-inline-embed-class *, .ns-theme-panel-mount, .ns-theme-panel-mount *';
+
+      let widgetTriggerMarkup = '';
+      
+      if (widgetConfig.mode === 'theme_panel') {
+        htmlCore = `<div class="ns-theme-panel-mount"></div>`;
+        widgetStyles = `
+  .ns-theme-panel-mount { width:100% !important; display:flex !important; flex-direction:column !important; gap:10px !important; margin-bottom: 15px !important; }
+  .ns-theme-panel-mount .ns-empty { color:#8fb0cc; font-size:0.85rem; text-align:center; padding:20px; }
+  .ns-theme-panel-mount .ns-card { background: rgba(3, 13, 31, 0.4) !important; border: 1px solid rgba(96,214,255,.15) !important; box-shadow: none !important; }
+  .ns-menu-dot { position:absolute !important; top:50% !important; transform:translateY(-50%) !important; right:20px !important; width:8px !important; height:8px !important; background:#ff4d6a !important; border-radius:50% !important; box-shadow:0 0 8px #ff4d6a !important; display:none !important; }
+  .ns-menu-dot.show { display:block !important; }`;
+        widgetJS = `
+  function renderThemePanel() {
+    var list = active(); 
+    document.querySelectorAll('.ns-theme-panel-mount').forEach(function(mount) {
+      if(list.length === 0){ mount.innerHTML = '<div class="ns-empty">No notices right now.</div>'; return; }
+      mount.innerHTML = list.map(function(n){
+        return '<div class="ns-card">'
+          + '<div class="ns-meta">'
+          + '<span class="ns-tag" style="'
+          + tagStyle(n)
+          + '">' + esc(tagLabel(n)) + '</span>'
+          + '<span class="ns-date">' + fmt(n.ts) + '</span></div>'
+          + (n.title ? '<div class="ns-title">' + esc(n.title) + '</div>' : '')
+          + '<div class="ns-body">' + n.html + '</div>'
+          + (n.link ? '<a class="ns-cta" href="' + esc(n.link) + '" target="_blank" rel="noopener">' + esc(n.linkLabel || 'Read more') + '</a>' : '')
+          + '</div>';
+      }).join('');
+    });
+  } 
+  renderThemePanel();
+
+  function bindThemeMenuBadge(){
+    var triggerLabels = document.querySelectorAll('.notifications-trigger-label');
+    triggerLabels.forEach(function(label) {
+      if(!label.querySelector('.ns-menu-dot')) {
+        var dot = document.createElement('span');
+        dot.className = 'ns-menu-dot';
+        dot.setAttribute('aria-hidden', 'true');
+        label.appendChild(dot);
+      }
+      if(!label.__nsMenuBadgeBound) {
+        label.__nsMenuBadgeBound = true;
+        label.addEventListener('click', function(){
+          var list = active();
+          if(list.length) { try { localStorage.setItem(SEEN_KEY, list[0].id); } catch(e) {} }
+          updateDot();
+        });
+      }
+    });
+    updateDot();
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindThemeMenuBadge);
+  else setTimeout(bindThemeMenuBadge, 0);
+`;
+      }
+      else if (widgetConfig.mode === 'inline') {
+        htmlCore = `<div class="ns-inline-embed-class"></div>`;
+        widgetStyles = `
+  .ns-inline-embed-class { width:100% !important; max-width:640px !important; background:#051530 !important; border:1px solid rgba(96,214,255,.2) !important; border-radius:14px !important; padding:16px !important; margin:15px auto !important; box-shadow:0 4px 12px rgba(0,0,0,0.3) !important; }`;
+        widgetJS = `
+  function renderInline() {
+    var list = active(); 
+    document.querySelectorAll('.ns-inline-embed-class').forEach(function(mount) {
+      if(list.length === 0){ mount.innerHTML = '<div style="color:#8fb0cc;font-size:0.85rem;text-align:center;padding:10px;">No notices right now.</div>'; return; }
+      mount.innerHTML = '<div style="font-family:Orbitron,sans-serif;font-weight:700;font-size:0.85rem;color:#39c9ff;margin-bottom:12px;">📡 SITE NOTICES</div><div style="display:flex;flex-direction:column;gap:10px;">' + list.map(function(n){
+        return '<div style="background:#0a1f42;border:1px solid rgba(96,214,255,.2);border-radius:10px;padding:12px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><span style="font-family:monospace;font-size:0.6rem;padding:2px 7px;border-radius:20px;text-transform:uppercase;font-weight:700;' + (n.priority==='alert' ? 'background:rgba(255,77,106,.18);color:#ff4d6a;' : n.priority==='update' ? 'background:rgba(46,232,138,.16);color:#2ee88a;' : 'background:rgba(57,201,255,.16);color:#39c9ff;') + '">' + esc(n.priority) + '</span><span style="font-family:monospace;font-size:0.63rem;color:#8fb0cc;">' + fmt(n.ts) + '</span></div>' + (n.title ? '<div style="font-weight:700;font-size:0.9rem;margin-bottom:3px;color:#eaf5ff;">' + esc(n.title) + '</div>' : '') + '<div style="font-size:0.86rem;line-height:1.5;color:#eaf5ff;">' + n.html + '</div>' + (n.link ? '<a href="' + esc(n.link) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;width:100%;margin-top:12px;padding:10px 16px;background:linear-gradient(180deg,#39c9ff,#1a8fc7);color:#03142b;border:none;border-radius:8px;font-weight:700;font-size:0.85rem;text-decoration:none;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(57,201,255,.35);text-align:center;">' + esc(n.linkLabel || 'Read more') + '</a>' : '') + '</div>';
+      }).join('') + '</div>';
+    });
+  } renderInline();`;
+      }
+      else if (widgetConfig.mode === 'bubble') {
+        widgetTriggerMarkup = `
+  <button type="button" class="ns-open-btn-class" aria-label="Open notices">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none"><path d="M12 2.5c-1 0-1.8.8-1.8 1.8v.6C7.7 5.6 6 7.9 6 10.6v3.6L4.4 16.6c-.4.6 0 1.4.7 1.4h13.8c.7 0 1.1-.8.7-1.4L18 14.2v-3.6c0-2.7-1.7-5-4.2-5.7v-.6c0-1-.8-1.8-1.8-1.8Z" fill="#03142b"/><path d="M9.8 19a2.2 2.2 0 0 0 4.4 0Z" fill="#03142b"/></svg>
+    <span class="ns-dot-class"></span>
+  </button>`;
+        
+        widgetStyles = `
+  .notice-system-bubble-class{ position:fixed !important; z-index:2147483647 !important; touch-action: none !important; }
+  .ns-open-btn-class{position:relative !important;width:52px !important;height:52px !important;border-radius:50% !important;border:1px solid rgba(96,214,255,.5) !important;
+    background:radial-gradient(circle at 30% 25%,#b9f3ff,#39c9ff 55%,#0a3a63 100%) !important;
+    box-shadow:0 0 16px rgba(57,201,255,.55) !important;cursor:grab !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:0 !important;}
+  .ns-open-btn-class:active{cursor:grabbing !important;}
+  .ns-dot-class{position:absolute !important;top:2px !important;right:2px !important;width:12px !important;height:12px !important;border-radius:50% !important;background:#ff4d6a !important;border:2px solid #03142b !important;display:none !important;}
+  .ns-dot-class.show{display:block !important;}`;
+
+        widgetJS = `
+  var openBtns = document.querySelectorAll('.ns-open-btn-class');
+  
+  openBtns.forEach(function(openBtn) {
+    var bubble = openBtn.closest('.notice-system-bubble-class');
+    var isDragging = false;
+    var startX, startY, initialX, initialY;
+    
+    var pctX = ${savedXPercent || 85};
+    var pctY = ${savedYPercent || 85};
+    
+    var savedPos = localStorage.getItem('ns_bubble_pct_pos');
+    if(savedPos) {
+      try {
+        var coords = JSON.parse(savedPos);
+        pctX = coords.pctX;
+        pctY = coords.pctY;
+      } catch(e){}
+    }
+    
+    function clampPosition() {
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var bWidth = bubble.offsetWidth || 52;
+      var bHeight = bubble.offsetHeight || 52;
+      
+      var curX = (pctX / 100) * vw;
+      var curY = (pctY / 100) * vh;
+      
+      var minX = 10;
+      var maxX = vw - bWidth - 10;
+      var minY = 10;
+      var maxY = vh - bHeight - 10;
+      
+      if (curX < minX) curX = minX;
+      if (curX > maxX) curX = maxX;
+      if (curY < minY) curY = minY;
+      if (curY > maxY) curY = maxY;
+      
+      bubble.style.left = curX + 'px';
+      bubble.style.top = curY + 'px';
+      bubble.style.right = 'auto';
+      bubble.style.bottom = 'auto';
+      
+      pctX = (curX / vw) * 100;
+      pctY = (curY / vh) * 100;
+    }
+    
+    function onDragStart(e) {
+      if(e.target.closest && e.target.closest('.ns-dot-class')) return;
+      isDragging = false; 
+      
+      var touchObj = e.touches && e.touches[0] ? e.touches[0] : null;
+      var clientX = touchObj ? touchObj.clientX : e.clientX;
+      var clientY = touchObj ? touchObj.clientY : e.clientY;
+      if (clientX === undefined || clientY === undefined) return;
+      
+      startX = clientX; startY = clientY;
+      var rect = bubble.getBoundingClientRect();
+      initialX = rect.left; initialY = rect.top;
+
+      window.addEventListener('mousemove', onDragMove, {passive: false});
+      window.addEventListener('touchmove', onDragMove, {passive: false});
+      window.addEventListener('mouseup', onDragEnd);
+      window.addEventListener('touchend', onDragEnd);
+      window.addEventListener('touchcancel', onDragEnd);
+    }
+    
+    function onDragMove(e) {
+      var touchObj = e.touches && e.touches[0] ? e.touches[0] : null;
+      var clientX = touchObj ? touchObj.clientX : e.clientX;
+      var clientY = touchObj ? touchObj.clientY : e.clientY;
+      if(clientX === undefined || clientY === undefined || startX === undefined) return;
+      
+      var dx = clientX - startX; var dy = clientY - startY;
+      if(Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        isDragging = true;
+        if (e.cancelable) e.preventDefault();
+        var nx = initialX + dx; var ny = initialY + dy;
+        
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var bWidth = bubble.offsetWidth || 52;
+        var bHeight = bubble.offsetHeight || 52;
+        
+        nx = Math.max(10, Math.min(nx, vw - bWidth - 10));
+        ny = Math.max(10, Math.min(ny, vh - bHeight - 10));
+        
+        bubble.style.left = nx + 'px';
+        bubble.style.top = ny + 'px';
+        bubble.style.right = 'auto';
+        bubble.style.bottom = 'auto';
+        
+        pctX = (nx / vw) * 100;
+        pctY = (ny / vh) * 100;
+      }
+    }
+    
+    function onDragEnd() {
+      if(isDragging) { 
+        localStorage.setItem('ns_bubble_pct_pos', JSON.stringify({ pctX: pctX, pctY: pctY })); 
+      }
+      startX = undefined; isDragging = false;
+      window.removeEventListener('mousemove', onDragMove); window.removeEventListener('touchmove', onDragMove);
+      window.removeEventListener('mouseup', onDragEnd); window.removeEventListener('touchend', onDragEnd); window.removeEventListener('touchcancel', onDragEnd);
+    }
+    
+    openBtn.addEventListener('mousedown', onDragStart);
+    openBtn.addEventListener('touchstart', onDragStart, {passive: false});
+
+    window.addEventListener('resize', clampPosition);
+    
+    clampPosition();
+    setTimeout(clampPosition, 150);
+
+    openBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      if(isDragging) return;
+      var panel = bubble.querySelector('.ns-panel-class');
+      panel.classList.add('open'); panel.setAttribute('aria-hidden','false');
+      document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; document.body.style.touchAction = 'none';
+      var list = active(); if(list.length) localStorage.setItem(SEEN_KEY, list[0].id); updateDot();
+    });
+  });`;
+      } else if (widgetConfig.mode === 'tab') {
+        const isLeft = widgetConfig.tabSide === 'left';
+        widgetTriggerMarkup = `<button type="button" class="ns-tab-btn-class">${esc(widgetConfig.tabText)}<span class="ns-dot-class"></span></button>`;
+        
+        widgetStyles = `
+  .notice-system-bubble-class{position:fixed !important; top:50% !important; ${isLeft ? 'left:0 !important;' : 'right:0 !important;'} z-index:2147483647 !important; touch-action: none !important; overscroll-behavior-x: none !important;}
+  .ns-tab-btn-class{ background:#0a1f42 !important; color:#39c9ff !important; border:1px solid rgba(96,214,255,.5) !important; padding:14px 10px !important; font-weight:bold !important; font-size:0.75rem !important; cursor:pointer !important; border-radius: ${isLeft ? '0 10px 10px 0' : '10px 0 0 10px'} !important; box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important; font-family:Orbitron, sans-serif !important; letter-spacing:1px !important; writing-mode:vertical-lr !important; text-orientation:mixed !important; display:flex !important; align-items:center !important; gap:6px !important; touch-action: none !important; overscroll-behavior-x: none !important; transform: translateY(-50%) !important; }
+  .ns-dot-class{width:8px !important; height:8px !important; border-radius:50% !important; background:#ff4d6a !important; display:none !important;}
+  .ns-dot-class.show{display:inline-block !important;}`;
+        
+        widgetJS = `
+  document.querySelectorAll('.ns-tab-btn-class').forEach(function(tabBtn) {
+    function openPanel(e){
+      if(e) {
+        if(e.cancelable) e.preventDefault();
+      }
+      var bubble = tabBtn.closest('.notice-system-bubble-class');
+      var panel = bubble.querySelector('.ns-panel-class');
+      if(panel) {
+        panel.classList.add('open'); panel.setAttribute('aria-hidden','false');
+      }
+      document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; document.body.style.touchAction = 'none';
+      var list = active(); if(list.length) localStorage.setItem(SEEN_KEY, list[0].id); updateDot();
+    }
+    tabBtn.addEventListener('click', openPanel);
+    tabBtn.addEventListener('touchstart', openPanel, {passive: false});
+  });`;
+      } else if (widgetConfig.mode === 'swipe') {
+        const isLeft = widgetConfig.swipeSide === 'left';
+        widgetTriggerMarkup = `<div class="ns-swipe-zone-class" title="Swipe inwards to open notices"><span class="ns-dot-class"></span></div>`;
+        widgetStyles = `
+  .notice-system-bubble-class{position:fixed !important; top:0 !important; bottom:0 !important; ${isLeft ? 'left:0 !important;' : 'right:0 !important;'} width:15px !important; z-index:2147483647 !important;}
+  .ns-swipe-zone-class{ width:100% !important; height:100% !important; background:linear-gradient(${isLeft ? '90deg' : '270deg'}, rgba(57,201,255,0.15), transparent) !important; cursor:ew-resize !important; display:flex !important; justify-content:center !important; align-items:center !important; touch-action: none !important; overscroll-behavior-x: none !important; }
+  .ns-dot-class{width:8px !important; height:8px !important; border-radius:50% !important; background:#ff4d6a !important; display:none !important; box-shadow:0 0 8px #ff4d6a !important;}
+  .ns-dot-class.show{display:block !important;}`;
+        widgetJS = `
+  document.querySelectorAll('.ns-swipe-zone-class').forEach(function(swipeZone) {
+    var touchStartX = 0;
+    var touchStartY = 0;
+    swipeZone.addEventListener('touchstart', function(e){ 
+      touchStartX = e.touches[0].clientX; 
+      touchStartY = e.touches[0].clientY; 
+    }, {passive:true});
+    swipeZone.addEventListener('touchmove', function(e){
+      var changeX = e.touches[0].clientX - touchStartX;
+      var changeY = e.touches[0].clientY - touchStartY;
+      
+      if (Math.abs(changeX) > Math.abs(changeY)) {
+        if (e.cancelable) e.preventDefault();
+      }
+      
+      if((${isLeft} && changeX > 30) || (!${isLeft} && changeX < -30)) {
+        var panel = swipeZone.closest('.notice-system-bubble-class').querySelector('.ns-panel-class');
+        panel.classList.add('open'); document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; document.body.style.touchAction = 'none';
+        var list = active(); if(list.length) localStorage.setItem(SEEN_KEY, list[0].id); updateDot();
+      }
+    }, {passive:false});
+    swipeZone.addEventListener('click', function(){
+      var panel = swipeZone.closest('.notice-system-bubble-class').querySelector('.ns-panel-class');
+      panel.classList.add('open'); document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; document.body.style.touchAction = 'none';
+      var list = active(); if(list.length) localStorage.setItem(SEEN_KEY, list[0].id); updateDot();
+    });
+  });`;
+      }
+
+      if(widgetConfig.mode !== 'inline' && widgetConfig.mode !== 'theme_panel'){
+        htmlCore = `
+<div class="notice-system-bubble-class">
+  ${widgetTriggerMarkup}
+  <div class="ns-panel-class" aria-hidden="true">
+    <div class="ns-topbar-class">
+      <span class="ns-brand-class">📡 NOTICE SYSTEM</span>
+      <button type="button" class="ns-close-btn-class" aria-label="Close">✕</button>
+    </div>
+    <div class="ns-body-mount-class"></div>
+  </div>
+</div>`;
+        widgetStyles += `
+  .ns-panel-class{ position:fixed !important; top:0 !important; bottom:0 !important; left:0 !important; width:100% !important; max-width:100vw !important; background:#03142b !important; transform:translateX(-100%) !important; transition:transform .28s cubic-bezier(0.16, 1, 0.3, 1) !important; display:flex !important; flex-direction:column !important; z-index:2147483647 !important; box-shadow:5px 0 25px rgba(0,0,0,0.6) !important; overscroll-behavior:contain !important; margin-top: 56px !important; }
+  .ns-panel-class.open{transform:translateX(0) !important;}
+  .ns-topbar-class{ display:flex !important; justify-content:space-between !important; align-items:center !important; padding:16px 16px !important; border-bottom:1px solid rgba(96,214,255,.25) !important; background:#051530 !important; min-height:60px !important; }
+  .ns-brand-class{font-family:Orbitron,sans-serif !important;font-weight:800 !important;font-size:0.85rem !important;color:#39c9ff !important;letter-spacing:0.5px !important;}
+  .ns-close-btn-class{background:rgba(255,255,255,.08) !important;border:none !important;color:#eaf5ff !important;width:34px !important;height:34px !important;border-radius:50% !important;cursor:pointer !important;font-size:16px !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:0 !important;}
+  .ns-body-mount-class{flex:1 !important;overflow-y:auto !important;padding:16px !important;overscroll-behavior:contain !important;}
+  @media (min-width:450px){ .ns-panel-class{width:380px !important; max-width:85vw !important;} }`;
+        widgetJS += `
+  document.querySelectorAll('.ns-close-btn-class').forEach(function(closeBtn) {
+    closeBtn.addEventListener('click', function(e){ 
+      e.preventDefault();
+      var panel = closeBtn.closest('.ns-panel-class');
+      if (panel) { panel.classList.remove('open'); panel.setAttribute('aria-hidden','true'); }
+      document.documentElement.style.overflow = ''; document.body.style.overflow = ''; document.body.style.touchAction = ''; 
+    });
+  });`;
+      }
+
+      widgetJS += `
+  function active(){
+    var now = Date.now();
+    return data.filter(function(n){ return (now - n.ts) < ${EXPIRE_DAYS * DAY_MS}; }).sort(function(a,b){ return b.ts - a.ts; });
+  }
+
+  function render(){
+    var list = active();
+    document.querySelectorAll('.ns-body-mount-class').forEach(function(mount) {
+      if(list.length === 0){
+        mount.innerHTML = '<div style="color:#8fb0cc;font-size:0.85rem;text-align:center;padding:20px;">No notices right now.</div>';
+        return;
+      }
+      mount.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;">' + list.map(function(n){
+        return '<div class="ns-card">'
+          + '<div class="ns-meta">'
+          + '<span class="ns-tag" style="'
+          + tagStyle(n)
+          + '">' + esc(tagLabel(n)) + '</span>'
+          + '<span class="ns-date">' + fmt(n.ts) + '</span></div>'
+          + (n.title ? '<div class="ns-title">' + esc(n.title) + '</div>' : '')
+          + '<div class="ns-body">' + n.html + '</div>'
+          + (n.link ? '<a class="ns-cta" href="' + esc(n.link) + '" target="_blank" rel="noopener">' + esc(n.linkLabel || 'Read more') + '</a>' : '')
+          + '</div>';
+      }).join('') + '</div>';
+    });
+  }
+
+  function tagColor(n){ return n && /^#[0-9a-fA-F]{6}$/.test(n.customColor || '') ? n.customColor : '#bb86fc'; }
+  function tagContrast(hex){
+    var c = tagColor({customColor:hex}).slice(1);
+    var r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
+    return ((r*299 + g*587 + b*114) / 1000) > 160 ? '#03142b' : '#ffffff';
+  }
+  function tagStyle(n){
+    if(n && n.priority === 'custom'){ var c = tagColor(n); return 'background:' + c + ';color:' + tagContrast(c) + ';'; }
+    return n && n.priority === 'alert' ? 'background:rgba(255,77,106,.18);color:#ff4d6a;' : n && n.priority === 'update' ? 'background:rgba(46,232,138,.16);color:#2ee88a;' : 'background:rgba(57,201,255,.16);color:#39c9ff;';
+  }
+  function tagLabel(n){ return n && n.priority === 'custom' ? ((n.customLabel || 'Custom').slice(0,30) || 'Custom') : ((n && n.priority) || 'standard'); }
+
+  function updateDot(){
+    var list = active();
+    var lastSeen = null;
+    try { lastSeen = localStorage.getItem(SEEN_KEY); } catch(e) {}
+    var latest = list.length ? list[0].id : null;
+    document.querySelectorAll('.ns-dot-class, .ns-menu-dot').forEach(function(dot) {
+      if(latest && latest !== lastSeen) dot.classList.add('show'); else dot.classList.remove('show');
+    });
+  }
+
+  if (document.querySelectorAll('.ns-body-mount-class').length > 0) { render(); updateDot(); }
+  else if (document.querySelectorAll('.ns-theme-panel-mount').length > 0) { updateDot(); }
+`;
+    }
+
+    const customOffsetsStyle = widgetConfig.mode === 'bubble' ? `style="left: ${savedXPercent || 85}vw; top: ${savedYPercent || 85}vh;"` : '';
+
+    let wrapperOpen = ''; let wrapperClose = '';
+    if (widgetConfig.mode === 'bubble' || widgetConfig.mode === 'tab' || widgetConfig.mode === 'swipe') {
+      wrapperOpen = `<div class="notice-system-bubble-class" ${customOffsetsStyle}>`;
+      wrapperClose = `</div>`;
+    }
+
+    const compiledMarkup = `<!-- Notice System Widget Code Section -->
+${wrapperOpen}
+  ${htmlCore}
+${wrapperClose}
+
+<style>
+  /* Guard scoped styles explicitly against template override pollution */
+  ${resetSelectors} {
+    box-sizing: border-box !important;
+    font-family: Inter, Arial, sans-serif !important;
+  }
+  
+  ${widgetStyles}
+
+  .ns-card { background: #0a1f42 !important; border: 1px solid rgba(96,214,255,.2) !important; border-radius: 10px !important; padding: 12px !important; margin-bottom: 10px !important; }
+  .ns-meta { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 5px !important; }
+  .ns-tag { font-family: monospace !important; font-size: 0.6rem !important; padding: 2px 7px !important; border-radius: 20px !important; text-transform: uppercase !important; font-weight: 700 !important; }
+  .ns-tag.standard { background: rgba(57,201,255,.16) !important; color: #39c9ff !important; }
+  .ns-tag.update { background: rgba(46,232,138,.16) !important; color: #2ee88a !important; }
+  .ns-tag.alert { background: rgba(255,77,106,.18) !important; color: #ff4d6a !important; }
+  .ns-date { font-family: monospace !important; font-size: 0.63rem !important; color: #8fb0cc !important; }
+  .ns-title { font-weight: 700 !important; font-size: 0.9rem !important; margin-bottom: 3px !important; color: #eaf5ff !important; }
+  .ns-body { font-size: 0.86rem !important; line-height: 1.5 !important; color: #eaf5ff !important; }
+  .ns-body img, .ns-body video { max-width: 100% !important; border-radius: 8px !important; margin-top: 6px !important; display: block !important; }
+  .ns-body a { color: #39c9ff !important; }
+  .ns-body mark { background: #ffbb4d !important; color: #241500 !important; }
+  
+  .ns-cta {
+    display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 100% !important;
+    margin-top: 12px !important; padding: 10px 16px !important; background: linear-gradient(180deg, #39c9ff, #1a8fc7) !important;
+    color: #03142b !important; border: none !important; border-radius: 8px !important; font-weight: 700 !important; font-size: 0.85rem !important;
+    text-decoration: none !important; text-transform: uppercase !important; letter-spacing: 0.5px !important; box-shadow: 0 4px 12px rgba(57,201,255,.35) !important;
+    text-align: center !important; transition: transform 0.1s ease, box-shadow 0.2s ease !important;
+  }
+  .ns-cta:active { transform: scale(0.98) !important; }
+</style>
+<script>
+(function(){
+  var EXPIRE_MS = ${EXPIRE_DAYS} * 24 * 60 * 60 * 1000;
+  var data = ${dataJSON};
+  var SEEN_KEY = 'ns_public_lastSeen';
+
+  try {
+    var bubbleEl = document.querySelector('.notice-system-bubble-class');
+    if (bubbleEl && bubbleEl.parentNode !== document.body) {
+      document.body.appendChild(bubbleEl);
+    }
+  } catch(e) {}
+
+  function esc(s){ return (s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  function fmt(ts){ return new Date(ts).toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+  ${widgetJS}
+})();
+<\/script>
+<!-- End Widget -->`;
+
+    codeOutput.value = compiledMarkup;
+    codeBox.classList.add('show');
+    copyConfirm.classList.remove('show');
+    
+    savedXPercent = Math.round((offX / window.innerWidth) * 100);
+    savedYPercent = Math.round((offY / window.innerHeight) * 100);
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      return new Promise((resolve, reject) => {
+        if (document.execCommand('copy')) { resolve(); } else { reject(); }
+        document.body.removeChild(textArea);
+      });
+    }
+  }
+
+  $('#ns-admin-scope').addEventListener('submit', (e)=>{ e.preventDefault(); });
+
+  $('#btnCopy').addEventListener('click', (e)=>{
+    e.preventDefault();
+    codeOutput.select(); codeOutput.setSelectionRange(0, 99999);
+    copyToClipboard(codeOutput.value).then(()=>{
+      copyConfirm.classList.add('show');
+      showToast('Copied code block!', 'success');
+    }).catch(()=>{
+      showToast('Tap inside text box to select/copy manually.', 'warning');
+    });
+  });
+
+  let deleteTargetId = null;
+  const confirmModalBg = $('#confirmModalBg');
+  const btnConfirmCancel = $('#btnConfirmCancel');
+  const btnConfirmOk = $('#btnConfirmOk');
+
+  btnConfirmCancel.addEventListener('click', () => {
+    deleteTargetId = null;
+    confirmModalBg.style.display = 'none';
+  });
+
+  btnConfirmOk.addEventListener('click', () => {
+    if (deleteTargetId) {
+      if(editingId === deleteTargetId) cancelEdit();
+      notices = notices.filter(n => String(n.id) !== deleteTargetId);
+      save(); renderAdminList();
+      showToast('Notice deleted.', 'success');
+      if(codeBox.classList.contains('show')) buildCode();
+    }
+    deleteTargetId = null;
+    confirmModalBg.style.display = 'none';
+  });
+
+  function renderAdminList() {
+    countTag.textContent = notices.length;
+    if (notices.length === 0) {
+      noticeList.innerHTML = '<div class="empty-state" style="color:var(--muted); font-size:0.85rem; text-align:center; padding:14px;">Nothing published.</div>';
+      return;
+    }
+    noticeList.innerHTML = notices.map(n => `
+      <div class="notice-item">
+        <div class="meta"><span class="tag ${n.priority}" style="${priorityTagStyle(n)}">${esc(priorityTagLabel(n))}</span><span class="date">${fmtDate(n.ts)}</span></div>
+        <div class="ttl" style="font-weight:bold; color:var(--blue); margin: 4px 0;">${esc(n.title)}</div>
+        <div class="body">${n.html}</div>
+        <div class="notice-actions">
+          <button type="button" class="notice-edit" data-id="${n.id}">✏️ Edit notice</button>
+          <button type="button" class="notice-del" data-id="${n.id}">🗑 Delete</button>
+        </div>
+      </div>`).join('');
+
+    noticeList.querySelectorAll('.notice-del').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        deleteTargetId = btn.dataset.id;
+        confirmModalBg.style.display = 'flex';
+      });
+    });
+
+    noticeList.querySelectorAll('.notice-edit').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        startEdit(btn.dataset.id);
+      });
+    });
+  }
+
+  renderAdminList();
+  
+  let savedXPercent = 85;
+  let savedYPercent = 85;
+})();
+</script>
+</div>
+</body>
+</html>
